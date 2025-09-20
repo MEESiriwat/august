@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Catch the Falling Hearts 💕</title>
+<style>
+  :root {
+  --bg: #fff0f7;
+  --basket: #ffb6d9;
+  --accent: #ff6fa3;
+  --shadow: 0 6px 14px rgba(0,0,0,0.08);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+body {
+  margin:0;
+  background: var(--bg);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+}
+.container {
+  position:relative;
+  width:320px;
+  height:480px;
+  background:#fff;
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.scoreboard {
+  position:absolute;
+  top:8px;
+  left:8px;
+  font-size:14px;
+  color:#444;
+  background:rgba(255,255,255,0.7);
+  padding:4px 8px;
+  border-radius:8px;
+}
+.giftbar {
+  position:absolute;
+  top:8px;
+  right:8px;
+  width:120px;
+  height:10px;
+  background:#ffdce8;
+  border-radius:6px;
+  overflow:hidden;
+}
+.gift-fill {
+  height:100%;
+  width:0%;
+  background:#ff6fa3;
+  transition:width 0.3s;
+}
+.basket {
+  position:absolute;
+  bottom:10px;
+  width:60px;
+  height:30px;
+  background:var(--basket);
+  border-radius:10px;
+  box-shadow:0 3px 6px rgba(0,0,0,0.2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+}
+.heart {
+  position:absolute;
+  font-size:26px;
+  pointer-events:none;
+}
+.overlay {
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:rgba(255,255,255,0.9);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+.btn {
+  background:var(--accent);
+  color:#fff;
+  border:0;
+  padding:8px 16px;
+  margin-top:10px;
+  border-radius:10px;
+  cursor:pointer;
+}
+</style>
+</head>
+<body>
+<div class="container" id="game">
+  <div class="scoreboard">คะแนน: <span id="score">0</span> ❤️ <span id="lives">3</span></div>
+  <div class="giftbar"><div class="gift-fill" id="giftFill"></div></div>
+  <div class="basket" id="basket">🧺</div>
+  
+  <!-- ป๊อปอัพเริ่มเกม -->
+  <div class="overlay" id="startOverlay">
+    <h2>Catch the Hearts 💖</h2>
+    <button class="btn" onclick="startGame()">กดเริ่มเกมเลย</button>
+  </div>
+
+  <!-- ป๊อปอัพเกมจบ -->
+  <div class="overlay" id="gameOver" style="display:none">
+    <h3>เกมจบแล้ว! ไม่เป็นไรเอาใหม่...</h3>
+    <p>คะแนน: <span id="finalScore"></span></p>
+    <button class="btn" onclick="location.reload()">เริ่มใหม่</button>
+  </div>
+
+  <!-- ป๊อปอัพของขวัญ -->
+  <div class="overlay" id="giftPopup" style="display:none">
+    <h3>คุณหมวยชนะแล้วว นี่ของขวัญคับบ! 🎁</h3>
+    <button class="btn" onclick="location.href='https://docs.google.com/forms/d/e/1FAIpQLScaCCIcIH__vEXAw8S-esPEYuIhzPqqjOpR1SLfJrZLwa0XMg/viewform';">รับของขวัญ</button>
+  </div>
+</div>
+
+<script>
+const gameEl = document.getElementById('game');
+const basket = document.getElementById('basket');
+const scoreEl = document.getElementById('score');
+const livesEl = document.getElementById('lives');
+const gameOverEl = document.getElementById('gameOver');
+const startOverlay = document.getElementById('startOverlay');
+const finalScoreEl = document.getElementById('finalScore');
+const giftFill = document.getElementById('giftFill');
+const giftPopup = document.getElementById('giftPopup');
+
+let basketX = 130;
+let score = 0;
+let lives = 3;
+let hearts = [];
+let gameLoop, heartInterval;
+let giftProgress = 0;
+let nextGiftTarget = 50; 
+
+function moveBasket(x) {
+  basketX = Math.max(0, Math.min(260, x));
+  basket.style.left = basketX + 'px';
+}
+
+function spawnHeart() {
+  const heart = document.createElement('div');
+  heart.className = 'heart';
+  heart.textContent = '💖';
+  heart.style.left = Math.random() * 280 + 'px';
+  heart.style.top = '-30px';
+  gameEl.appendChild(heart);
+  hearts.push({ el: heart, y: -30 });
+}
+
+function updateGame() {
+  hearts.forEach((h, i) => {
+    h.y += 17; // ความเร็วของหัวใจที่ตก
+    h.el.style.top = h.y + 'px';
+
+    const heartX = parseInt(h.el.style.left);
+    if (h.y > 430 && h.y < 460 && heartX > basketX - 20 && heartX < basketX + 60) {
+      score++;
+      scoreEl.textContent = score;
+      h.el.remove();
+      hearts.splice(i, 1);
+
+      updateGiftProgress();
+    } else if (h.y > 460) {
+      h.el.remove();
+      hearts.splice(i, 1);
+      lives--;
+      livesEl.textContent = lives;
+      if (lives <= 0) endGame();
+    }
+  });
+}
+
+function updateGiftProgress() {
+  giftProgress = score;
+  const percent = Math.min((giftProgress / nextGiftTarget) * 100, 100);
+  giftFill.style.width = percent + '%';
+
+  if (giftProgress >= nextGiftTarget) {
+    showGiftPopup();
+    nextGiftTarget = nextGiftTarget === 30 ? 50 : nextGiftTarget === 50 ? 75 : 9999;
+  }
+}
+
+function showGiftPopup() {
+  clearInterval(gameLoop);
+  clearInterval(heartInterval);
+  giftPopup.style.display = 'flex';
+}
+
+function startGame() {
+  startOverlay.style.display = 'none';
+  score = 0;
+  lives = 3;
+  nextGiftTarget = 30;
+  giftFill.style.width = '0%';
+  scoreEl.textContent = score;
+  livesEl.textContent = lives;
+  hearts = [];
+  gameOverEl.style.display = 'none';
+  moveBasket(130);
+
+  clearInterval(gameLoop);
+  clearInterval(heartInterval);
+
+  gameLoop = setInterval(updateGame, 40);
+  heartInterval = setInterval(spawnHeart, 800);
+}
+
+function endGame() {
+  clearInterval(gameLoop);
+  clearInterval(heartInterval);
+  finalScoreEl.textContent = score;
+  gameOverEl.style.display = 'flex';
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') moveBasket(basketX - 35);
+  if (e.key === 'ArrowRight') moveBasket(basketX + 35);
+});
+
+gameEl.addEventListener('mousemove', (e) => {
+  const rect = gameEl.getBoundingClientRect();
+  const x = e.clientX - rect.left - 30;
+  moveBasket(x);
+});
+gameEl.addEventListener('touchmove', (e) => {
+  const rect = gameEl.getBoundingClientRect();
+  const x = e.touches[0].clientX - rect.left - 30;
+  moveBasket(x);
+  e.preventDefault();
+});
+</script>
+</body>
+</html>
